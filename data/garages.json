@@ -1,0 +1,52 @@
+[
+  {
+    "id": "GAR-001",
+    "name": "Bayshore Tow & Repair",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "supportsTow": true,
+    "supportsRepair": true,
+    "phone": "+15550200101",
+    "address": "100 Bayshore Blvd, San Francisco, CA"
+  },
+  {
+    "id": "GAR-002",
+    "name": "Mission Mobile Mechanics",
+    "lat": 37.7599,
+    "lng": -122.4148,
+    "supportsTow": false,
+    "supportsRepair": true,
+    "phone": "+15550200102",
+    "address": "2200 Mission St, San Francisco, CA"
+  },
+  {
+    "id": "GAR-003",
+    "name": "Golden Gate Towing",
+    "lat": 37.8199,
+    "lng": -122.4783,
+    "supportsTow": true,
+    "supportsRepair": false,
+    "phone": "+15550200103",
+    "address": "1 Bridge Approach, San Francisco, CA"
+  },
+  {
+    "id": "GAR-004",
+    "name": "South Bay Auto Assist",
+    "lat": 37.3382,
+    "lng": -121.8863,
+    "supportsTow": true,
+    "supportsRepair": true,
+    "phone": "+15550200104",
+    "address": "500 Tech Park Dr, San Jose, CA"
+  },
+  {
+    "id": "GAR-005",
+    "name": "East Bay Roadside Hub",
+    "lat": 37.8044,
+    "lng": -122.2712,
+    "supportsTow": true,
+    "supportsRepair": true,
+    "phone": "+15550200105",
+    "address": "88 Broadway, Oakland, CA"
+  }
+]

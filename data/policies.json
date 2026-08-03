@@ -1,0 +1,93 @@
+[
+  {
+    "id": "POL-RSA-001",
+    "name": "Roadside Assistance Standard",
+    "version": "2024.1",
+    "clauses": [
+      {
+        "id": "CL-001",
+        "section": "3.1",
+        "title": "Flat tire assistance",
+        "text": "Covered services include on-site tire change or temporary repair when the insured vehicle has a flat or damaged tire and a usable spare is available. Towing to the nearest garage is covered if on-site repair is not possible.",
+        "covers": ["flat_tire"]
+      },
+      {
+        "id": "CL-002",
+        "section": "3.2",
+        "title": "Battery jump-start",
+        "text": "Jump-start service is covered for a dead battery up to three times per policy year. Battery replacement parts are not covered under roadside assistance.",
+        "covers": ["dead_battery"]
+      },
+      {
+        "id": "CL-003",
+        "section": "3.3",
+        "title": "Lockout service",
+        "text": "Lockout assistance is covered when the policyholder is locked out of the insured vehicle. Locksmith parts and key replacement beyond basic unlock are not covered.",
+        "covers": ["lockout"]
+      },
+      {
+        "id": "CL-004",
+        "section": "3.4",
+        "title": "Fuel delivery",
+        "text": "Emergency fuel delivery of up to 2 gallons (or equivalent) is covered when the vehicle runs out of fuel. The cost of the fuel itself may be billed to the customer.",
+        "covers": ["out_of_fuel"]
+      },
+      {
+        "id": "CL-005",
+        "section": "3.5",
+        "title": "Mechanical disablement tow",
+        "text": "Towing to the nearest participating garage is covered when the insured vehicle is mechanically disabled and cannot be safely driven. On-site mechanical repair beyond jump-start or tire change is not covered.",
+        "covers": ["mechanical"]
+      },
+      {
+        "id": "CL-006",
+        "section": "4.1",
+        "title": "Collision and accident exclusion for roadside",
+        "text": "Roadside assistance does not cover collision damage assessment or accident scene towing when a claim under collision coverage is more appropriate. Cases involving injury, multi-vehicle accidents, or police involvement must be escalated to a human agent.",
+        "covers": ["collision"]
+      },
+      {
+        "id": "CL-007",
+        "section": "5.1",
+        "title": "Geographic and safety limits",
+        "text": "Service is limited to public roads and accessible private property within the policy territory. Locations that are unsafe for a service vehicle (closed highways, active emergency scenes) require human escalation before dispatch.",
+        "covers": ["other", "flat_tire", "dead_battery", "lockout", "out_of_fuel", "mechanical"]
+      }
+    ]
+  },
+  {
+    "id": "POL-RSA-002",
+    "name": "Roadside Assistance Plus",
+    "version": "2024.2",
+    "clauses": [
+      {
+        "id": "CL-101",
+        "section": "3.1",
+        "title": "Expanded tire and battery",
+        "text": "Includes all Standard roadside tire and battery services, plus one complimentary battery delivery per year when jump-start fails.",
+        "covers": ["flat_tire", "dead_battery"]
+      },
+      {
+        "id": "CL-102",
+        "section": "3.2",
+        "title": "Winch and soft-shoulder recovery",
+        "text": "Winching from mud, snow, or a soft shoulder is covered up to 100 feet when the vehicle is otherwise undamaged and accessible.",
+        "covers": ["mechanical", "other"]
+      },
+      {
+        "id": "CL-103",
+        "section": "3.3",
+        "title": "Lockout and fuel",
+        "text": "Lockout unlock and emergency fuel delivery are covered under Plus with the same limits as Standard.",
+        "covers": ["lockout", "out_of_fuel"]
+      },
+      {
+        "id": "CL-104",
+        "section": "4.1",
+        "title": "Accident tow exclusion",
+        "text": "Plus does not replace collision or comprehensive claims. Accident-related towing with injuries or police on scene must escalate.",
+        "covers": ["collision"]
+      }
+    ]
+  }
+]

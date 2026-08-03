@@ -1,0 +1,46 @@
+[
+  {
+    "id": "PH-001",
+    "name": "Jordan Lee",
+    "dateOfBirth": "1988-04-12",
+    "policyId": "POL-RSA-001",
+    "phone": "+15550100101",
+    "vehicleMake": "Toyota",
+    "vehicleModel": "Camry",
+    "vehicleYear": "2019",
+    "plate": "7ABC123"
+  },
+  {
+    "id": "PH-002",
+    "name": "Sam Rivera",
+    "dateOfBirth": "1992-11-03",
+    "policyId": "POL-RSA-002",
+    "phone": "+15550100102",
+    "vehicleMake": "Honda",
+    "vehicleModel": "CR-V",
+    "vehicleYear": "2021",
+    "plate": "8XYZ456"
+  },
+  {
+    "id": "PH-003",
+    "name": "Alex Chen",
+    "dateOfBirth": "1975-07-22",
+    "policyId": "POL-RSA-001",
+    "phone": "+15550100103",
+    "vehicleMake": "Ford",
+    "vehicleModel": "F-150",
+    "vehicleYear": "2018",
+    "plate": "5DEF789"
+  },
+  {
+    "id": "PH-004",
+    "name": "Morgan Patel",
+    "dateOfBirth": "1990-01-15",
+    "policyId": "POL-RSA-002",
+    "phone": "+15550100104",
+    "vehicleMake": "Tesla",
+    "vehicleModel": "Model 3",
+    "vehicleYear": "2022",
+    "plate": "EVRIDE1"
+  }
+]
