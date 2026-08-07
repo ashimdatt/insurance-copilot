@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CaseRecord, ExtractedFields } from "@/lib/types";
+import { VOICE_OPENING_INSTRUCTIONS } from "@/lib/voice";
 
 type ConnState = "idle" | "connecting" | "live" | "ended" | "error";
 
@@ -116,8 +117,7 @@ export function VoiceClient() {
           JSON.stringify({
             type: "response.create",
             response: {
-              instructions:
-                "Greet the stranded driver briefly and start intake. Do not discuss coverage.",
+              instructions: VOICE_OPENING_INSTRUCTIONS,
             },
           }),
         );
