@@ -272,15 +272,9 @@ export function buildSmsPreview(caseRecord: CaseRecord): string {
     return `Hi ${firstName}, good news: your roadside assistance request is approved. We're sending ${service}${provider}.${phoneLine} A dispatcher will text or call you shortly with timing and next steps.`;
   }
   if (decision === "not_covered") {
-    const phoneLine = notifyPhone
-      ? ` We're sending this note to ${notifyPhone}.`
-      : "";
-    return `Hi ${firstName}, after review this request is not covered under your roadside benefit.${phoneLine} An agent can walk you through other options if you reply to this message.`;
+    return `Hi ${firstName}, thank you for reaching out, and we're sorry this is a stressful moment. After review, this request isn't covered under your roadside benefit as written. A human agent will follow up with you shortly to talk through other ways we may still be able to help. Please keep your phone nearby${notifyPhone ? ` (${notifyPhone})` : ""}.`;
   }
-  const phoneLine = notifyPhone
-    ? ` We're sending this note to ${notifyPhone}.`
-    : "";
-  return `Hi ${firstName}, thanks for contacting us. We're still reviewing your roadside request and an agent will reach out shortly with next steps.${phoneLine}`;
+  return `Hi ${firstName}, thank you for contacting roadside assistance. We want to make sure we get this right for you, so a human agent will follow up shortly to discuss the best ways we can help. Please keep your phone nearby${notifyPhone ? ` (${notifyPhone})` : ""}.`;
 }
 
 export function approveCase(

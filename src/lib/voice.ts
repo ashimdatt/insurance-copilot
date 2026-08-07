@@ -28,7 +28,9 @@ Collect, in natural conversation (order can vary after the opening):
 1. Full name
 2. Date of birth (store as YYYY-MM-DD)
 3. Vehicle make, model, year, and plate if offered
-4. Location: prefer on-screen GPS share; otherwise a spoken address as locationText
+4. Location: prefer on-screen GPS share; otherwise a spoken address as locationText.
+   When GPS is shared, locationText will be a physical place name/address and locationLat/locationLng stay as coordinates.
+   Always confirm the place name out loud (e.g. street and city), not raw latitude/longitude, then ask if it is correct.
 5. What happened / damage type: flat_tire, dead_battery, lockout, out_of_fuel (also EV depleted charge / no range), mechanical, collision, or other
 6. Short situation description
 

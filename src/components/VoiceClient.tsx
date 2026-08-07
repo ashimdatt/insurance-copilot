@@ -200,12 +200,26 @@ export function VoiceClient() {
       setError("Geolocation is not available in this browser");
       return;
     }
+    pushEvent("Getting GPS…");
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        let locationText = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        try {
+          const geoRes = await fetch(
+            `/api/geocode/reverse?lat=${encodeURIComponent(String(lat))}&lng=${encodeURIComponent(String(lng))}`,
+          );
+          const geo = await geoRes.json();
+          if (geo.locationText) locationText = String(geo.locationText);
+        } catch (geoErr) {
+          console.error("Reverse geocode failed:", geoErr);
+        }
+
         const fields: ExtractedFields = {
-          locationLat: pos.coords.latitude,
-          locationLng: pos.coords.longitude,
-          locationText: `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`,
+          locationLat: lat,
+          locationLng: lng,
+          locationText,
         };
         const res = await fetch(`/api/cases/${current.id}`, {
           method: "PATCH",
@@ -214,7 +228,7 @@ export function VoiceClient() {
         });
         const data = await res.json();
         setCaseRecord(data.case);
-        pushEvent("GPS location shared");
+        pushEvent(`GPS shared: ${locationText}`);
         if (dcRef.current?.readyState === "open") {
           dcRef.current.send(
             JSON.stringify({
@@ -225,17 +239,25 @@ export function VoiceClient() {
                 content: [
                   {
                     type: "input_text",
-                    text: `My GPS location is lat ${fields.locationLat}, lng ${fields.locationLng}. Please save it.`,
+                    text: `I shared my GPS. My location is ${locationText}. Coordinates are latitude ${lat}, longitude ${lng}. Please save the place name as the location, confirm it back to me in plain English, and ask if that looks right.`,
                   },
                 ],
               },
             }),
           );
-          dcRef.current.send(JSON.stringify({ type: "response.create" }));
+          dcRef.current.send(
+            JSON.stringify({
+              type: "response.create",
+              response: {
+                instructions:
+                  "Confirm the caller's physical place name clearly in English (not raw lat/long). Ask if that location is correct or if they need to update it.",
+              },
+            }),
+          );
         }
       },
       (geoErr) => setError(geoErr.message),
-      { enableHighAccuracy: true, timeout: 10000 },
+      { enableHighAccuracy: true, timeout: 15000 },
     );
   }
 
