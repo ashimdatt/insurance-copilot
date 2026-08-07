@@ -6,6 +6,7 @@
     "lng": -122.4194,
     "supportsTow": true,
     "supportsRepair": true,
+    "supportsEv": false,
     "phone": "+15550200101",
     "address": "100 Bayshore Blvd, San Francisco, CA"
   },
@@ -16,6 +17,7 @@
     "lng": -122.4148,
     "supportsTow": false,
     "supportsRepair": true,
+    "supportsEv": false,
     "phone": "+15550200102",
     "address": "2200 Mission St, San Francisco, CA"
   },
@@ -26,6 +28,7 @@
     "lng": -122.4783,
     "supportsTow": true,
     "supportsRepair": false,
+    "supportsEv": false,
     "phone": "+15550200103",
     "address": "1 Bridge Approach, San Francisco, CA"
   },
@@ -36,6 +39,7 @@
     "lng": -121.8863,
     "supportsTow": true,
     "supportsRepair": true,
+    "supportsEv": false,
     "phone": "+15550200104",
     "address": "500 Tech Park Dr, San Jose, CA"
   },
@@ -46,7 +50,63 @@
     "lng": -122.2712,
     "supportsTow": true,
     "supportsRepair": true,
+    "supportsEv": false,
     "phone": "+15550200105",
     "address": "88 Broadway, Oakland, CA"
+  },
+  {
+    "id": "GAR-EV-001",
+    "name": "SF EV Flatbed & Charge Assist",
+    "lat": 37.7695,
+    "lng": -122.4101,
+    "supportsTow": true,
+    "supportsRepair": true,
+    "supportsEv": true,
+    "phone": "+15550201001",
+    "address": "850 Harrison St, San Francisco, CA"
+  },
+  {
+    "id": "GAR-EV-002",
+    "name": "Peninsula Mobile EV Charging",
+    "lat": 37.4848,
+    "lng": -122.2281,
+    "supportsTow": false,
+    "supportsRepair": true,
+    "supportsEv": true,
+    "phone": "+15550201002",
+    "address": "2000 University Ave, East Palo Alto, CA"
+  },
+  {
+    "id": "GAR-EV-003",
+    "name": "South Bay EV Service & Tow",
+    "lat": 37.3861,
+    "lng": -121.9832,
+    "supportsTow": true,
+    "supportsRepair": true,
+    "supportsEv": true,
+    "phone": "+15550201003",
+    "address": "3400 Thomas Rd, Santa Clara, CA"
+  },
+  {
+    "id": "GAR-EV-004",
+    "name": "East Bay EV Recovery",
+    "lat": 37.8318,
+    "lng": -122.2869,
+    "supportsTow": true,
+    "supportsRepair": true,
+    "supportsEv": true,
+    "phone": "+15550201004",
+    "address": "1200 40th St, Emeryville, CA"
+  },
+  {
+    "id": "GAR-EV-005",
+    "name": "Marin EV Flatbed Unit",
+    "lat": 37.9735,
+    "lng": -122.5311,
+    "supportsTow": true,
+    "supportsRepair": false,
+    "supportsEv": true,
+    "phone": "+15550201005",
+    "address": "50 Redwood Hwy, Mill Valley, CA"
   }
 ]

@@ -62,6 +62,7 @@ export interface Garage {
   lng: number;
   supportsTow: boolean;
   supportsRepair: boolean;
+  supportsEv: boolean;
   phone: string;
   address: string;
 }
@@ -101,11 +102,30 @@ export interface CaseRecord {
   flagged: boolean;
 }
 
+export type AuditActor = "system" | "voice_agent" | "human_agent" | "customer";
+
 export interface AuditEntry {
   id: string;
   caseId: string;
   at: string;
-  actor: "system" | "voice_agent" | "human_agent" | "customer";
+  actor: AuditActor;
+  actorId: string | null;
   action: string;
+  correlationId: string | null;
+  seq: number | null;
+  prevHash: string | null;
+  entryHash: string | null;
   detail: Record<string, unknown>;
 }
+
+export type CoverageCheckTrace = {
+  result: CoverageResult;
+  method: "llm" | "rules";
+  provider: string | null;
+  model: string | null;
+  policyId: string;
+  retrievedClauseIds: string[];
+  retrievedClauses: Array<{ id: string; section: string; title: string }>;
+  prompt: string | null;
+  rawResponse: string | null;
+};

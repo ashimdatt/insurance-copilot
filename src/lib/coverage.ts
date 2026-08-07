@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { getClausesForPolicy } from "./db";
 import type {
+  CoverageCheckTrace,
   CoverageDecision,
   CoverageResult,
   DamageType,
@@ -48,7 +49,9 @@ function ruleBasedCoverage(
       decision: "uncertain",
       confidence: 0.4,
       clauseId: clause?.id ?? null,
-      clauseText: clause ? `${clause.section} ${clause.title}: ${clause.text}` : null,
+      clauseText: clause
+        ? `${clause.section} ${clause.title}: ${clause.text}`
+        : null,
       rationale:
         "Collision-related roadside cases require human review per policy exclusions.",
     };
@@ -74,12 +77,11 @@ function ruleBasedCoverage(
   };
 }
 
-async function llmCoverage(
+function buildCoveragePrompt(
   redactedTranscript: string,
   fields: ExtractedFields,
   clauses: PolicyClause[],
-): Promise<CoverageResult | null> {
-  const provider = (process.env.LLM_PROVIDER || "openai").toLowerCase();
+): string {
   const clauseBlock = clauses
     .map(
       (c) =>
@@ -87,13 +89,22 @@ async function llmCoverage(
     )
     .join("\n");
 
-  const prompt = `You are an insurance coverage analyst for roadside assistance.
+  return `You are an insurance coverage analyst for roadside assistance.
 Decide covered / not_covered / uncertain for this case.
 You MUST cite a clause id from the list. If no clause applies, decision must be uncertain and clauseId null.
 Never invent clause ids. Personal data is already redacted.
 
-Extracted fields (may be partial):
-${JSON.stringify(fields, null, 2)}
+Extracted fields (may be partial, PII removed):
+${JSON.stringify(
+  {
+    ...fields,
+    policyholderName: fields.policyholderName ? "[NAME]" : undefined,
+    dateOfBirth: fields.dateOfBirth ? "[DOB]" : undefined,
+    plate: fields.plate ? "[PLATE]" : undefined,
+  },
+  null,
+  2,
+)}
 
 Redacted transcript:
 """
@@ -105,6 +116,18 @@ ${clauseBlock}
 
 Respond with JSON only:
 {"decision":"covered"|"not_covered"|"uncertain","confidence":0-1,"clauseId":"CL-xxx"|null,"rationale":"..."}`;
+}
+
+async function llmCoverage(
+  prompt: string,
+  clauses: PolicyClause[],
+): Promise<{
+  result: CoverageResult;
+  provider: string;
+  model: string;
+  rawResponse: string;
+} | null> {
+  const provider = (process.env.LLM_PROVIDER || "openai").toLowerCase();
 
   try {
     if (provider === "anthropic") {
@@ -121,7 +144,12 @@ Respond with JSON only:
         .filter((b) => b.type === "text")
         .map((b) => b.text)
         .join("\n");
-      return parseCoverageResponse(text, clauses);
+      return {
+        result: parseCoverageResponse(text, clauses),
+        provider: "anthropic",
+        model,
+        rawResponse: text,
+      };
     }
 
     if (!process.env.OPENAI_API_KEY) return null;
@@ -141,7 +169,12 @@ Respond with JSON only:
       ],
     });
     const text = completion.choices[0]?.message?.content ?? "";
-    return parseCoverageResponse(text, clauses);
+    return {
+      result: parseCoverageResponse(text, clauses),
+      provider: "openai",
+      model,
+      rawResponse: text,
+    };
   } catch (error) {
     console.error("Coverage LLM failed, falling back to rules:", error);
     return null;
@@ -161,7 +194,6 @@ function parseCoverageResponse(
     ? clauses.find((c) => c.id === parsed.clauseId)
     : null;
 
-  // No citation => force uncertain (PRD hard rule)
   let decision: CoverageDecision = parsed.decision;
   if (!clause && parsed.decision !== "uncertain") {
     decision = "uncertain";
@@ -184,16 +216,47 @@ export async function checkCoverage(input: {
   policyId: string;
   fields: ExtractedFields;
   redactedTranscript: string;
-}): Promise<CoverageResult> {
+}): Promise<CoverageCheckTrace> {
   const clauses = retrieveRelevantClauses(
     input.policyId,
     input.fields.damageType,
   );
-  const llm = await llmCoverage(
+  const prompt = buildCoveragePrompt(
     input.redactedTranscript,
     input.fields,
     clauses,
   );
-  if (llm) return llm;
-  return ruleBasedCoverage(input.fields, clauses);
+  const llm = await llmCoverage(prompt, clauses);
+  const retrievedClauses = clauses.map((c) => ({
+    id: c.id,
+    section: c.section,
+    title: c.title,
+  }));
+  const retrievedClauseIds = clauses.map((c) => c.id);
+
+  if (llm) {
+    return {
+      result: llm.result,
+      method: "llm",
+      provider: llm.provider,
+      model: llm.model,
+      policyId: input.policyId,
+      retrievedClauseIds,
+      retrievedClauses,
+      prompt,
+      rawResponse: llm.rawResponse,
+    };
+  }
+
+  return {
+    result: ruleBasedCoverage(input.fields, clauses),
+    method: "rules",
+    provider: null,
+    model: null,
+    policyId: input.policyId,
+    retrievedClauseIds,
+    retrievedClauses,
+    prompt,
+    rawResponse: null,
+  };
 }

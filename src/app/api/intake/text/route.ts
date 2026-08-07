@@ -136,6 +136,7 @@ function heuristicExtract(
     { name: "Sam Rivera", dob: "1992-11-03" },
     { name: "Alex Chen", dob: "1975-07-22" },
     { name: "Morgan Patel", dob: "1990-01-15" },
+    { name: "Ashim Datta", dob: "1965-03-07" },
   ];
   for (const demo of demos) {
     if (lower.includes(demo.name.toLowerCase())) {
@@ -156,6 +157,12 @@ function heuristicExtract(
     ["locked out", "lockout"],
     ["out of fuel", "out_of_fuel"],
     ["no gas", "out_of_fuel"],
+    ["out of charge", "out_of_fuel"],
+    ["no charge", "out_of_fuel"],
+    ["depleted", "out_of_fuel"],
+    ["ran out of range", "out_of_fuel"],
+    ["zero percent", "out_of_fuel"],
+    ["0%", "out_of_fuel"],
     ["collision", "collision"],
     ["accident", "collision"],
     ["won't start", "mechanical"],
@@ -172,8 +179,8 @@ function heuristicExtract(
     const make = message.match(/\b(Toyota|Honda|Ford|Tesla)\b/i);
     if (make) fields.vehicleMake = make[1];
   }
-  if (/camry|cr-?v|f-?150|model\s*3/i.test(message)) {
-    const model = message.match(/\b(Camry|CR-?V|F-?150|Model\s*3)\b/i);
+  if (/camry|cr-?v|f-?150|model\s*[3y]/i.test(message)) {
+    const model = message.match(/\b(Camry|CR-?V|F-?150|Model\s*[3Y])\b/i);
     if (model) fields.vehicleModel = model[1];
   }
 

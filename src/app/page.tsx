@@ -69,7 +69,8 @@ export default function HomePage() {
           <li>Jordan Lee · 1988-04-12 · Standard</li>
           <li>Sam Rivera · 1992-11-03 · Plus</li>
           <li>Alex Chen · 1975-07-22 · Standard</li>
-          <li>Morgan Patel · 1990-01-15 · Plus</li>
+          <li>Morgan Patel · 1990-01-15 · EV Roadside · Tesla Model 3</li>
+          <li>Ashim Datta · 1965-03-07 · EV Roadside · Tesla Model Y</li>
         </ul>
       </section>
     </div>

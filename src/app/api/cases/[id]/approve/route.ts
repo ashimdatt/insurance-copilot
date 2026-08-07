@@ -18,6 +18,7 @@ export async function POST(request: Request, { params }: Params) {
     humanDecision?: CoverageDecision;
     humanNotes?: string;
     overrideNba?: NbaResult;
+    agentId?: string;
   };
 
   try {
@@ -26,6 +27,7 @@ export async function POST(request: Request, { params }: Params) {
       humanDecision: body.humanDecision,
       humanNotes: body.humanNotes,
       overrideNbaAction: body.overrideNba,
+      agentId: body.agentId,
     });
     return NextResponse.json({ case: updated });
   } catch (error) {

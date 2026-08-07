@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { appendAudit, getCase, updateCase } from "@/lib/db";
+import { appendAudit } from "@/lib/audit";
+import { getCase, updateCase } from "@/lib/db";
 import { runPostIntakeAnalysis } from "@/lib/orchestrator";
 
 export const runtime = "nodejs";
@@ -19,9 +20,8 @@ export async function POST(request: Request, { params }: Params) {
   };
 
   if (body.finalSummary) {
-    updateCase(id, {
-      transcript: `${existing.transcript}\n${body.finalSummary}`.trim(),
-    });
+    const { mergeFields } = await import("@/lib/orchestrator");
+    mergeFields(id, {}, body.finalSummary);
   }
   if (body.escalate) {
     updateCase(id, { flagged: true });

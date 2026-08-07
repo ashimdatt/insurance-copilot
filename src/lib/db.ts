@@ -3,7 +3,6 @@ import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 import type {
-  AuditEntry,
   CaseRecord,
   CaseStatus,
   CoverageResult,
@@ -67,6 +66,7 @@ function migrate(db: Database.Database) {
       lng REAL NOT NULL,
       supports_tow INTEGER NOT NULL,
       supports_repair INTEGER NOT NULL,
+      supports_ev INTEGER NOT NULL DEFAULT 0,
       phone TEXT NOT NULL,
       address TEXT NOT NULL
     );
@@ -96,9 +96,24 @@ function migrate(db: Database.Database) {
       at TEXT NOT NULL,
       actor TEXT NOT NULL,
       action TEXT NOT NULL,
-      detail_json TEXT NOT NULL
+      detail_json TEXT NOT NULL,
+      seq INTEGER,
+      actor_id TEXT,
+      correlation_id TEXT,
+      prev_hash TEXT,
+      entry_hash TEXT
     );
   `);
+
+  // Existing DBs created before EV support
+  const garageCols = db.prepare("PRAGMA table_info(garages)").all() as Array<{
+    name: string;
+  }>;
+  if (!garageCols.some((c) => c.name === "supports_ev")) {
+    db.exec(
+      "ALTER TABLE garages ADD COLUMN supports_ev INTEGER NOT NULL DEFAULT 0",
+    );
+  }
 }
 
 function seedIfEmpty(db: Database.Database) {
@@ -131,9 +146,9 @@ function seedIfEmpty(db: Database.Database) {
 
   const insertGarage = db.prepare(`
     INSERT INTO garages (
-      id, name, lat, lng, supports_tow, supports_repair, phone, address
+      id, name, lat, lng, supports_tow, supports_repair, supports_ev, phone, address
     ) VALUES (
-      @id, @name, @lat, @lng, @supportsTow, @supportsRepair, @phone, @address
+      @id, @name, @lat, @lng, @supportsTow, @supportsRepair, @supportsEv, @phone, @address
     )
   `);
 
@@ -161,12 +176,104 @@ function seedIfEmpty(db: Database.Database) {
         lng: g.lng,
         supportsTow: g.supportsTow ? 1 : 0,
         supportsRepair: g.supportsRepair ? 1 : 0,
+        supportsEv: g.supportsEv ? 1 : 0,
         phone: g.phone,
         address: g.address,
       });
     }
   });
 
+  tx();
+}
+
+/**
+ * Re-apply JSON seed data into an existing DB (upsert).
+ * Safe to run when JSON files change on a machine that already has copilot.db.
+ */
+export function syncSeedFromJson(): void {
+  const db = getDb();
+  const policyholders = readJson<Policyholder[]>("policyholders.json");
+  const policies = readJson<PolicyFile[]>("policies.json");
+  const garages = readJson<Garage[]>("garages.json");
+
+  const upsertPh = db.prepare(`
+    INSERT INTO policyholders (
+      id, name, date_of_birth, policy_id, phone,
+      vehicle_make, vehicle_model, vehicle_year, plate
+    ) VALUES (
+      @id, @name, @dateOfBirth, @policyId, @phone,
+      @vehicleMake, @vehicleModel, @vehicleYear, @plate
+    )
+    ON CONFLICT(id) DO UPDATE SET
+      name=excluded.name,
+      date_of_birth=excluded.date_of_birth,
+      policy_id=excluded.policy_id,
+      phone=excluded.phone,
+      vehicle_make=excluded.vehicle_make,
+      vehicle_model=excluded.vehicle_model,
+      vehicle_year=excluded.vehicle_year,
+      plate=excluded.plate
+  `);
+
+  const upsertClause = db.prepare(`
+    INSERT INTO policy_clauses (
+      id, policy_id, section, title, text, covers_json
+    ) VALUES (
+      @id, @policyId, @section, @title, @text, @coversJson
+    )
+    ON CONFLICT(id) DO UPDATE SET
+      policy_id=excluded.policy_id,
+      section=excluded.section,
+      title=excluded.title,
+      text=excluded.text,
+      covers_json=excluded.covers_json
+  `);
+
+  const upsertGarage = db.prepare(`
+    INSERT INTO garages (
+      id, name, lat, lng, supports_tow, supports_repair, supports_ev, phone, address
+    ) VALUES (
+      @id, @name, @lat, @lng, @supportsTow, @supportsRepair, @supportsEv, @phone, @address
+    )
+    ON CONFLICT(id) DO UPDATE SET
+      name=excluded.name,
+      lat=excluded.lat,
+      lng=excluded.lng,
+      supports_tow=excluded.supports_tow,
+      supports_repair=excluded.supports_repair,
+      supports_ev=excluded.supports_ev,
+      phone=excluded.phone,
+      address=excluded.address
+  `);
+
+  const tx = db.transaction(() => {
+    for (const ph of policyholders) upsertPh.run(ph);
+    for (const policy of policies) {
+      for (const clause of policy.clauses) {
+        upsertClause.run({
+          id: clause.id,
+          policyId: policy.id,
+          section: clause.section,
+          title: clause.title,
+          text: clause.text,
+          coversJson: JSON.stringify(clause.covers),
+        });
+      }
+    }
+    for (const g of garages) {
+      upsertGarage.run({
+        id: g.id,
+        name: g.name,
+        lat: g.lat,
+        lng: g.lng,
+        supportsTow: g.supportsTow ? 1 : 0,
+        supportsRepair: g.supportsRepair ? 1 : 0,
+        supportsEv: g.supportsEv ? 1 : 0,
+        phone: g.phone,
+        address: g.address,
+      });
+    }
+  });
   tx();
 }
 
@@ -178,6 +285,10 @@ export function getDb(): Database.Database {
   migrate(db);
   seedIfEmpty(db);
   dbInstance = db;
+  // Lazy: finish audit schema/backfill after DB is ready
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { initAudit } = require("./audit") as typeof import("./audit");
+  initAudit();
   return db;
 }
 
@@ -213,6 +324,10 @@ export function createCase(fields: ExtractedFields = {}): CaseRecord {
       id, status, created_at, updated_at, fields_json, transcript, redacted_transcript
     ) VALUES (?, 'intake', ?, ?, ?, '', '')`,
   ).run(id, now, now, JSON.stringify(fields));
+  // Lazy import avoids circular dependency with audit.ts
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { appendAudit, initAudit } = require("./audit") as typeof import("./audit");
+  initAudit();
   appendAudit(id, "system", "case_created", { fields });
   return getCase(id)!;
 }
@@ -318,60 +433,6 @@ export function updateCase(
   return getCase(id);
 }
 
-export function appendAudit(
-  caseId: string,
-  actor: AuditEntry["actor"],
-  action: string,
-  detail: Record<string, unknown> = {},
-): AuditEntry {
-  const entry: AuditEntry = {
-    id: randomUUID(),
-    caseId,
-    at: new Date().toISOString(),
-    actor,
-    action,
-    detail,
-  };
-  getDb()
-    .prepare(
-      `INSERT INTO audit_log (id, case_id, at, actor, action, detail_json)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      entry.id,
-      entry.caseId,
-      entry.at,
-      entry.actor,
-      entry.action,
-      JSON.stringify(entry.detail),
-    );
-  return entry;
-}
-
-export function listAudit(caseId: string): AuditEntry[] {
-  const rows = getDb()
-    .prepare(
-      "SELECT * FROM audit_log WHERE case_id = ? ORDER BY at ASC",
-    )
-    .all(caseId) as Array<{
-    id: string;
-    case_id: string;
-    at: string;
-    actor: AuditEntry["actor"];
-    action: string;
-    detail_json: string;
-  }>;
-
-  return rows.map((row) => ({
-    id: row.id,
-    caseId: row.case_id,
-    at: row.at,
-    actor: row.actor,
-    action: row.action,
-    detail: JSON.parse(row.detail_json) as Record<string, unknown>,
-  }));
-}
-
 export function findPolicyholderByIdentity(
   name: string,
   dateOfBirth: string,
@@ -471,6 +532,7 @@ export function listGarages(): Garage[] {
     lng: number;
     supports_tow: number;
     supports_repair: number;
+    supports_ev?: number;
     phone: string;
     address: string;
   }>;
@@ -482,6 +544,7 @@ export function listGarages(): Garage[] {
     lng: row.lng,
     supportsTow: Boolean(row.supports_tow),
     supportsRepair: Boolean(row.supports_repair),
+    supportsEv: Boolean(row.supports_ev),
     phone: row.phone,
     address: row.address,
   }));

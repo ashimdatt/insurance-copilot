@@ -14,8 +14,8 @@
       {
         "id": "CL-002",
         "section": "3.2",
-        "title": "Battery jump-start",
-        "text": "Jump-start service is covered for a dead battery up to three times per policy year. Battery replacement parts are not covered under roadside assistance.",
+        "title": "Battery jump-start (12V)",
+        "text": "Jump-start service is covered for a depleted 12V starter or auxiliary battery up to three times per policy year. High-voltage EV traction packs are not jump-started under Standard; if the vehicle is a BEV/PHEV with a depleted traction battery, escalate or tow to a charger-capable facility. Battery replacement parts are not covered.",
         "covers": ["dead_battery"]
       },
       {
@@ -29,14 +29,14 @@
         "id": "CL-004",
         "section": "3.4",
         "title": "Fuel delivery",
-        "text": "Emergency fuel delivery of up to 2 gallons (or equivalent) is covered when the vehicle runs out of fuel. The cost of the fuel itself may be billed to the customer.",
+        "text": "Emergency fuel delivery of up to 2 gallons (or equivalent) is covered when an ICE vehicle runs out of fuel. Standard does not include mobile EV charging or charge-delivery for battery-electric vehicles; those cases should use EV Roadside or Plus EV benefits where available.",
         "covers": ["out_of_fuel"]
       },
       {
         "id": "CL-005",
         "section": "3.5",
         "title": "Mechanical disablement tow",
-        "text": "Towing to the nearest participating garage is covered when the insured vehicle is mechanically disabled and cannot be safely driven. On-site mechanical repair beyond jump-start or tire change is not covered.",
+        "text": "Towing to the nearest participating garage is covered when the insured vehicle is mechanically disabled and cannot be safely driven. On-site mechanical repair beyond jump-start or tire change is not covered. EV tows should use flatbed transport when required by the manufacturer.",
         "covers": ["mechanical"]
       },
       {
@@ -58,13 +58,13 @@
   {
     "id": "POL-RSA-002",
     "name": "Roadside Assistance Plus",
-    "version": "2024.2",
+    "version": "2024.3",
     "clauses": [
       {
         "id": "CL-101",
         "section": "3.1",
-        "title": "Expanded tire and battery",
-        "text": "Includes all Standard roadside tire and battery services, plus one complimentary battery delivery per year when jump-start fails.",
+        "title": "Expanded tire and 12V battery",
+        "text": "Includes all Standard roadside tire and 12V battery services, plus one complimentary 12V battery delivery per year when jump-start fails.",
         "covers": ["flat_tire", "dead_battery"]
       },
       {
@@ -78,8 +78,22 @@
         "id": "CL-103",
         "section": "3.3",
         "title": "Lockout and fuel",
-        "text": "Lockout unlock and emergency fuel delivery are covered under Plus with the same limits as Standard.",
+        "text": "Lockout unlock and emergency fuel delivery for ICE vehicles are covered under Plus with the same limits as Standard.",
         "covers": ["lockout", "out_of_fuel"]
+      },
+      {
+        "id": "CL-105",
+        "section": "3.4",
+        "title": "EV depleted-charge assist (Plus)",
+        "text": "For battery-electric and plug-in hybrid vehicles on Plus, one mobile charging or charge-assist event per policy year is covered when the traction battery is too depleted to reach a public charger. Service may be a mobile charger truck or a flatbed tow to the nearest compatible charger, whichever is nearer and available. Fast-charging session fees at third-party stations are not covered.",
+        "covers": ["out_of_fuel", "dead_battery"]
+      },
+      {
+        "id": "CL-106",
+        "section": "3.5",
+        "title": "EV-safe transport (Plus)",
+        "text": "When an EV cannot be driven, Plus covers flatbed towing to the nearest EV-capable garage or manufacturer-approved service center within 50 miles. Dolly towing that lifts only one axle is not covered for BEVs unless the manufacturer explicitly allows it.",
+        "covers": ["mechanical", "other"]
       },
       {
         "id": "CL-104",
@@ -87,6 +101,69 @@
         "title": "Accident tow exclusion",
         "text": "Plus does not replace collision or comprehensive claims. Accident-related towing with injuries or police on scene must escalate.",
         "covers": ["collision"]
+      }
+    ]
+  },
+  {
+    "id": "POL-RSA-EV-001",
+    "name": "EV Roadside Assistance",
+    "version": "2025.1",
+    "clauses": [
+      {
+        "id": "CL-201",
+        "section": "2.1",
+        "title": "Mobile charging for depleted traction battery",
+        "text": "Covered when a BEV or PHEV cannot drive due to a depleted high-voltage traction battery. Includes dispatch of a mobile Level-2 or DC-capable charge truck to deliver enough energy to reach the nearest public charger (typically 10-20 miles of range), up to four events per policy year. Stationary public charging fees remain the customer's responsibility.",
+        "covers": ["out_of_fuel", "dead_battery"]
+      },
+      {
+        "id": "CL-202",
+        "section": "2.2",
+        "title": "12V auxiliary battery support",
+        "text": "Many EVs will not unlock, power accessories, or close contactors when the 12V auxiliary battery is dead. Covered services include 12V jump-start or temporary 12V support so the vehicle can be put in tow mode or driven if the traction pack has charge. 12V battery replacement parts are not covered.",
+        "covers": ["dead_battery", "lockout"]
+      },
+      {
+        "id": "CL-203",
+        "section": "2.3",
+        "title": "EV tire and roadside tire service",
+        "text": "On-site tire change or plug repair is covered when safe. If the vehicle uses a tire repair kit instead of a spare, kit assistance and tow to an EV tire shop are covered when on-site repair fails.",
+        "covers": ["flat_tire"]
+      },
+      {
+        "id": "CL-204",
+        "section": "2.4",
+        "title": "Flatbed tow to charger or EV service center",
+        "text": "If mobile charging is unavailable or the vehicle has a non-charge fault (thermal event cool-down complete, drivetrain fault, brake/hold failure), flatbed tow is covered to the nearest EV-capable garage, Tesla/OEM service center, or public DC fast charger within 100 miles.",
+        "covers": ["mechanical", "out_of_fuel", "other"]
+      },
+      {
+        "id": "CL-205",
+        "section": "2.5",
+        "title": "Lockout and digital key recovery",
+        "text": "Lockout assistance is covered, including coordination with OEM roadside for digital key / phone-as-key recovery when the customer cannot open the vehicle. Physical key cutting is not covered.",
+        "covers": ["lockout"]
+      },
+      {
+        "id": "CL-206",
+        "section": "3.1",
+        "title": "High-voltage and thermal safety escalation",
+        "text": "If the customer reports a battery thermal warning, smoke, burning smell, crash with airbag deployment, or first-responder loop cut, do not dispatch a standard repair truck. Escalate to a human agent and use EV-trained flatbed only after the scene is cleared safe. These cases are uncertain for automated coverage until human review.",
+        "covers": ["collision", "mechanical", "other"]
+      },
+      {
+        "id": "CL-207",
+        "section": "3.2",
+        "title": "Collision exclusion",
+        "text": "EV Roadside does not replace collision or comprehensive claims. Accident scene towing with injuries or police involvement must escalate to a human agent.",
+        "covers": ["collision"]
+      },
+      {
+        "id": "CL-208",
+        "section": "4.1",
+        "title": "Charger compatibility and adapters",
+        "text": "Mobile charging and tow-to-charger services must target a connector compatible with the insured vehicle (NACS, CCS, J1772, or OEM adapter the customer has on hand). If no compatible charger exists within the covered radius, coverage defaults to flatbed tow to an EV-capable garage.",
+        "covers": ["out_of_fuel", "mechanical"]
       }
     ]
   }

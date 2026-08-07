@@ -9,6 +9,14 @@ const REPAIR_DAMAGE: DamageType[] = [
   "out_of_fuel",
 ];
 
+const EV_MAKES = new Set([
+  "tesla",
+  "rivian",
+  "lucid",
+  "polestar",
+  "vinfast",
+]);
+
 function haversineKm(
   lat1: number,
   lng1: number,
@@ -25,10 +33,24 @@ function haversineKm(
   return 2 * r * Math.asin(Math.sqrt(a));
 }
 
+export function isElectricVehicle(input: {
+  vehicleMake?: string;
+  vehicleModel?: string;
+}): boolean {
+  const make = (input.vehicleMake || "").trim().toLowerCase();
+  if (make && EV_MAKES.has(make)) return true;
+  const model = (input.vehicleModel || "").toLowerCase();
+  return /\b(model\s*[3sxy]|cybertruck|leaf|bolt|ioniq|mach-?e|id\.?\s*4|ev\b)/i.test(
+    `${make} ${model}`,
+  );
+}
+
 export function recommendDispatch(input: {
   damageType?: DamageType;
   locationLat?: number;
   locationLng?: number;
+  vehicleMake?: string;
+  vehicleModel?: string;
 }): NbaResult {
   const damageType = input.damageType;
   if (!damageType) {
@@ -50,14 +72,26 @@ export function recommendDispatch(input: {
     action = "none";
   }
 
+  // Depleted EV charge: prefer mobile charge / EV repair when possible;
+  // mechanical EV faults still tow via EV flatbed shops.
+  const wantsEv = isElectricVehicle(input);
+  if (wantsEv && damageType === "out_of_fuel") {
+    action = "repair_truck";
+  }
+
   const lat = input.locationLat ?? 37.7749;
   const lng = input.locationLng ?? -122.4194;
   const usedDefaultLocation =
     input.locationLat === undefined || input.locationLng === undefined;
 
-  const candidates = listGarages().filter((g) =>
+  let candidates = listGarages().filter((g) =>
     action === "tow" ? g.supportsTow : g.supportsRepair,
   );
+
+  if (wantsEv) {
+    const evCapable = candidates.filter((g) => g.supportsEv);
+    if (evCapable.length > 0) candidates = evCapable;
+  }
 
   if (candidates.length === 0 || action === "none") {
     return {
@@ -84,7 +118,9 @@ export function recommendDispatch(input: {
     garageId: best.id,
     garageName: best.name,
     distanceKm: Math.round(bestDistance * 10) / 10,
-    rationale: `Damage type "${damageType}" maps to ${action}. Nearest eligible garage is ${best.name} (${best.address})${
+    rationale: `Damage type "${damageType}" maps to ${action}${
+      wantsEv ? " (EV-capable provider preferred)" : ""
+    }. Nearest eligible garage is ${best.name} (${best.address})${
       usedDefaultLocation
         ? " using default SF coordinates because GPS was not shared"
         : ""

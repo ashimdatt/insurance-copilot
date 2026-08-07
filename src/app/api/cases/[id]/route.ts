@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getCase, listAudit, updateCase } from "@/lib/db";
+import { getCase, updateCase } from "@/lib/db";
+import { listAudit } from "@/lib/audit";
 import { mergeFields } from "@/lib/orchestrator";
 import type { ExtractedFields } from "@/lib/types";
 

@@ -61,7 +61,8 @@ export async function POST(request: Request) {
       }
       if (args.escalate) {
         mergeFields(body.caseId, {});
-        const { updateCase, appendAudit } = await import("@/lib/db");
+        const { updateCase } = await import("@/lib/db");
+        const { appendAudit } = await import("@/lib/audit");
         updateCase(body.caseId, { flagged: true });
         appendAudit(body.caseId, "voice_agent", "escalated", {
           reason: args.finalSummary ?? "escalate flag",

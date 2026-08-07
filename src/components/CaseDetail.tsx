@@ -8,10 +8,13 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   const [caseRecord, setCaseRecord] = useState<CaseRecord | null>(null);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [notes, setNotes] = useState("");
+  const [agentId, setAgentId] = useState("agent-demo-001");
   const [overrideDecision, setOverrideDecision] =
     useState<CoverageDecision>("uncertain");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chainStatus, setChainStatus] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/cases/${caseId}`);
@@ -27,11 +30,27 @@ export function CaseDetail({ caseId }: { caseId: string }) {
     }
   }, [caseId]);
 
+  const verifyChain = useCallback(async () => {
+    const res = await fetch(`/api/cases/${caseId}/audit`);
+    const data = await res.json();
+    if (!res.ok) {
+      setChainStatus(data.error || "Verify failed");
+      return;
+    }
+    setChainStatus(
+      data.verification?.ok
+        ? `✓ ${data.verification.message}`
+        : `✗ ${data.verification?.message}`,
+    );
+    if (data.audit) setAudit(data.audit);
+  }, [caseId]);
+
   useEffect(() => {
     load();
+    verifyChain();
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
-  }, [load]);
+  }, [load, verifyChain]);
 
   async function approve(acceptSuggestion: boolean) {
     setBusy(true);
@@ -44,12 +63,14 @@ export function CaseDetail({ caseId }: { caseId: string }) {
           acceptSuggestion,
           humanDecision: acceptSuggestion ? undefined : overrideDecision,
           humanNotes: notes || undefined,
+          agentId: agentId.trim() || undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Approval failed");
       setCaseRecord(data.case);
       await load();
+      await verifyChain();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Approval failed");
     } finally {
@@ -197,6 +218,16 @@ export function CaseDetail({ caseId }: { caseId: string }) {
           </div>
         )}
         <label className="block text-sm text-[var(--muted)]">
+          Agent ID (recorded on approve/override)
+          <input
+            value={agentId}
+            onChange={(e) => setAgentId(e.target.value)}
+            disabled={!canAct}
+            className="mt-1 w-full rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)] outline-none focus:border-[var(--accent-dim)]"
+            placeholder="agent-demo-001"
+          />
+        </label>
+        <label className="mt-3 block text-sm text-[var(--muted)]">
           Notes / override reason
           <textarea
             value={notes}
@@ -238,12 +269,66 @@ export function CaseDetail({ caseId }: { caseId: string }) {
         </div>
       </Panel>
 
-      <Panel title="Audit log">
-        <ul className="space-y-2 font-mono text-xs text-[var(--muted)]">
-          {audit.length === 0 && <li>No events.</li>}
+      <Panel title="Audit trail (append-only hash chain)">
+        <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">
+          <button
+            type="button"
+            onClick={verifyChain}
+            className="rounded-md border border-[var(--border)] px-3 py-1.5"
+          >
+            Verify chain
+          </button>
+          {chainStatus && (
+            <span
+              className={
+                chainStatus.startsWith("✓")
+                  ? "text-[var(--ok)]"
+                  : "text-[var(--danger)]"
+              }
+            >
+              {chainStatus}
+            </span>
+          )}
+        </div>
+        <ul className="space-y-2">
+          {audit.length === 0 && (
+            <li className="text-sm text-[var(--muted)]">No events.</li>
+          )}
           {audit.map((entry) => (
-            <li key={entry.id}>
-              {entry.at} · {entry.actor} · {entry.action}
+            <li
+              key={entry.id}
+              className="rounded-md border border-[var(--border)]/70 bg-[var(--bg)] p-2"
+            >
+              <button
+                type="button"
+                className="flex w-full flex-wrap items-baseline justify-between gap-2 text-left font-mono text-xs"
+                onClick={() =>
+                  setExpandedId(expandedId === entry.id ? null : entry.id)
+                }
+              >
+                <span>
+                  #{entry.seq ?? "?"} · {entry.at} · {entry.actor}
+                  {entry.actorId ? `/${entry.actorId}` : ""} · {entry.action}
+                </span>
+                <span className="text-[var(--muted)]">
+                  {(entry.entryHash || "").slice(0, 12)}…
+                </span>
+              </button>
+              {expandedId === entry.id && (
+                <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap text-[10px] text-[var(--muted)]">
+                  {JSON.stringify(
+                    {
+                      id: entry.id,
+                      correlationId: entry.correlationId,
+                      prevHash: entry.prevHash,
+                      entryHash: entry.entryHash,
+                      detail: entry.detail,
+                    },
+                    null,
+                    2,
+                  )}
+                </pre>
+              )}
             </li>
           ))}
         </ul>

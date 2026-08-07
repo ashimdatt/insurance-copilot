@@ -36,11 +36,22 @@
     "id": "PH-004",
     "name": "Morgan Patel",
     "dateOfBirth": "1990-01-15",
-    "policyId": "POL-RSA-002",
+    "policyId": "POL-RSA-EV-001",
     "phone": "+15550100104",
     "vehicleMake": "Tesla",
     "vehicleModel": "Model 3",
     "vehicleYear": "2022",
     "plate": "EVRIDE1"
+  },
+  {
+    "id": "PH-005",
+    "name": "Ashim Datta",
+    "dateOfBirth": "1965-03-07",
+    "policyId": "POL-RSA-EV-001",
+    "phone": "+16506567633",
+    "vehicleMake": "Tesla",
+    "vehicleModel": "Model Y",
+    "vehicleYear": "2023",
+    "plate": "ASHIM1"
   }
 ]
