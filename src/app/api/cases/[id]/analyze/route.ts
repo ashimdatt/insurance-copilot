@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { appendAudit } from "@/lib/audit";
 import { getCase, updateCase } from "@/lib/db";
-import { runPostIntakeAnalysis } from "@/lib/orchestrator";
+import {
+  getIntakeClosing,
+  mergeFields,
+  runPostIntakeAnalysis,
+} from "@/lib/orchestrator";
 
 export const runtime = "nodejs";
 
@@ -20,16 +24,28 @@ export async function POST(request: Request, { params }: Params) {
   };
 
   if (body.finalSummary) {
-    const { mergeFields } = await import("@/lib/orchestrator");
     mergeFields(id, {}, body.finalSummary);
   }
-  if (body.escalate) {
+  const escalate = Boolean(body.escalate);
+  if (escalate) {
     updateCase(id, { flagged: true });
     appendAudit(id, "voice_agent", "escalated", {
       reason: body.finalSummary ?? "Caller requested or safety escalate",
     });
   }
 
+  const closing = getIntakeClosing(id, escalate);
   const analyzed = await runPostIntakeAnalysis(id);
-  return NextResponse.json({ case: analyzed });
+  appendAudit(id, "voice_agent", "intake_closing_spoken", {
+    suggestedClosing: closing.suggestedClosing,
+    notificationPhone: closing.notificationPhone,
+    channel: "analyze_api",
+  });
+
+  return NextResponse.json({
+    case: analyzed,
+    suggestedClosing: closing.suggestedClosing,
+    notificationPhone: closing.notificationPhone,
+    notificationPhoneDisplay: closing.notificationPhoneDisplay,
+  });
 }

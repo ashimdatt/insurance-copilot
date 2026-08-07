@@ -4,6 +4,22 @@ Roadside assistance intake, coverage check, and dispatch recommendation with hum
 
 Prototype of the architecture in `docs/architecture.pdf` and `docs/PRD_Insurance_CoPilot_v2.pdf`.
 
+## Tech stack
+
+| Layer | Choice |
+|---|---|
+| Language | TypeScript (app source is `.ts` / `.tsx`) |
+| Runtime | Node.js (Next.js server APIs + SQLite) |
+| Framework | Next.js 16 (App Router) |
+| UI | React 19 + Tailwind CSS |
+| Data | SQLite via `better-sqlite3`, seeded from JSON in `data/` |
+| Voice | OpenAI Realtime API (WebRTC in the browser) |
+| Coverage / text LLM | OpenAI chat (default) or Anthropic (`LLM_PROVIDER`) |
+| Validation | Zod |
+| Audit | Append-only SQLite `audit_log` with SHA-256 hash chain |
+
+There is no separate Python/Java backend. Frontend and API routes live in one Next.js TypeScript app.
+
 ## What works in this repo
 
 | Feature | Status |
@@ -159,7 +175,7 @@ Still local-file SQLite (not WORM cloud storage). Treat this as strong prototype
 | `nba_json` | TEXT | `{"action":"repair_truck","garageId":"GAR-EV-001",...}` |
 | `human_decision` | TEXT | `covered` |
 | `human_notes` | TEXT | `Looks correct` |
-| `sms_preview` | TEXT | `Hi Ashim Datta, your roadside request is approved...` |
+| `sms_preview` | TEXT | `Hi Ashim, good news: your roadside assistance request is approved...` |
 | `flagged` | INTEGER 0/1 | `0` |
 
 ### `audit_log` (append-only)

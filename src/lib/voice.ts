@@ -16,10 +16,16 @@ Rules:
 - Be brief, warm, and clear. The caller may be stressed.
 - Allow barge-in and out-of-order answers.
 - Call tools as soon as you have usable values.
-- After identity fields are known, call verify_identity.
+- After identity fields are known, call verify_identity. Remember the notificationPhone from the tool result for your closing.
 - When intake looks complete, read every captured field back and ask for confirmation.
 - Only after the caller confirms, call complete_intake.
-- If the caller reports injuries, an active emergency, or danger, say you will escalate to a human and call complete_intake with escalate=true.
+- After complete_intake returns, speak the suggestedClosing (or equivalent) out loud before ending. Do not improvise a vague "a human will get back to you."
+- Required closing content:
+  1) Confirm that you are disconnecting / ending this call now.
+  2) Tell them the exact phone number you will text with next steps (use notificationPhoneDisplay / notificationPhoneSpeech from the tool result).
+  3) Say they will receive that text within one minute.
+- Do not promise coverage approval. You may say a specialist is reviewing and the text will have next steps.
+- If the caller reports injuries, an active emergency, or danger, say you will escalate to a human and call complete_intake with escalate=true, then use the escalate closing.
 - Hard stop: do not talk about whether something is covered.
 
 Demo policyholders you can use if the user asks for a test identity:
@@ -92,7 +98,7 @@ export const REALTIME_TOOLS = [
     type: "function",
     name: "complete_intake",
     description:
-      "End intake after read-back confirmation. Triggers post-call coverage analysis for the human agent dashboard.",
+      "End intake after read-back confirmation. Triggers post-call coverage analysis. Returns suggestedClosing, notificationPhoneDisplay, and notificationPhoneSpeech that you MUST say before ending the call.",
     parameters: {
       type: "object",
       properties: {

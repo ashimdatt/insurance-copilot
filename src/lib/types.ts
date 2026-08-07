@@ -32,6 +32,8 @@ export interface ExtractedFields {
   damageType?: DamageType;
   damageDescription?: string;
   situation?: string;
+  /** Policyholder mobile used for SMS updates */
+  contactPhone?: string;
 }
 
 export interface PolicyClause {

@@ -53,13 +53,10 @@ export async function POST(request: Request) {
     }
     case "complete_intake": {
       if (args.finalSummary) {
-        mergeFields(
-          body.caseId,
-          {},
-          String(args.finalSummary),
-        );
+        mergeFields(body.caseId, {}, String(args.finalSummary));
       }
-      if (args.escalate) {
+      const escalate = Boolean(args.escalate);
+      if (escalate) {
         mergeFields(body.caseId, {});
         const { updateCase } = await import("@/lib/db");
         const { appendAudit } = await import("@/lib/audit");
@@ -68,11 +65,22 @@ export async function POST(request: Request) {
           reason: args.finalSummary ?? "escalate flag",
         });
       }
+      const { getIntakeClosing } = await import("@/lib/orchestrator");
+      const closing = getIntakeClosing(body.caseId, escalate);
       const analyzed = await runPostIntakeAnalysis(body.caseId);
+      const { appendAudit } = await import("@/lib/audit");
+      appendAudit(body.caseId, "voice_agent", "intake_closing_spoken", {
+        suggestedClosing: closing.suggestedClosing,
+        notificationPhone: closing.notificationPhone,
+      });
       return NextResponse.json({
         ok: true,
         message:
-          "Intake complete. Coverage analysis is ready for the agent dashboard.",
+          "Intake complete. Speak suggestedClosing to the caller, then end the call.",
+        suggestedClosing: closing.suggestedClosing,
+        notificationPhone: closing.notificationPhone,
+        notificationPhoneDisplay: closing.notificationPhoneDisplay,
+        notificationPhoneSpeech: closing.notificationPhoneSpeech,
         case: analyzed,
       });
     }

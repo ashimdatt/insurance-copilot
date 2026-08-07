@@ -275,7 +275,11 @@ export function VoiceClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Analyze failed");
       setCaseRecord(data.case);
-      pushEvent("Intake complete → pending agent review");
+      if (data.suggestedClosing) {
+        pushEvent(`Agent: ${data.suggestedClosing}`);
+      } else {
+        pushEvent("Intake complete → pending agent review");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analyze failed");
     } finally {
@@ -419,6 +423,7 @@ export function VoiceClient() {
             ["Plate", fields?.plate],
             ["Damage", fields?.damageType],
             ["Location", fields?.locationText],
+            ["Mobile", fields?.contactPhone],
             ["Situation", fields?.situation || fields?.damageDescription],
           ].map(([label, value]) => (
             <div key={String(label)} className="flex justify-between gap-3 border-b border-[var(--border)]/60 py-1.5">

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AuditEntry, CaseRecord, CoverageDecision } from "@/lib/types";
 
 export function CaseDetail({ caseId }: { caseId: string }) {
@@ -15,6 +15,9 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [chainStatus, setChainStatus] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Don't let the 5s poll overwrite a choice the agent already made in the UI
+  const decisionTouchedRef = useRef(false);
+  const decisionSeededRef = useRef(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/cases/${caseId}`);
@@ -25,8 +28,13 @@ export function CaseDetail({ caseId }: { caseId: string }) {
     }
     setCaseRecord(data.case);
     setAudit(data.audit ?? []);
-    if (data.case?.coverage?.decision) {
+    if (
+      data.case?.coverage?.decision &&
+      !decisionTouchedRef.current &&
+      !decisionSeededRef.current
+    ) {
       setOverrideDecision(data.case.coverage.decision);
+      decisionSeededRef.current = true;
     }
   }, [caseId]);
 
@@ -46,6 +54,8 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   }, [caseId]);
 
   useEffect(() => {
+    decisionTouchedRef.current = false;
+    decisionSeededRef.current = false;
     load();
     verifyChain();
     const id = setInterval(load, 5000);
@@ -90,6 +100,12 @@ export function CaseDetail({ caseId }: { caseId: string }) {
     caseRecord.status === "pending_review" ||
     caseRecord.status === "intake" ||
     caseRecord.status === "escalated";
+
+  const aiDecision = caseRecord.coverage?.decision ?? null;
+  const isChangingDecision =
+    aiDecision != null && overrideDecision !== aiDecision;
+  const canApprove = canAct && Boolean(caseRecord.coverage) && !isChangingDecision;
+  const canOverride = canAct && isChangingDecision;
 
   return (
     <div className="space-y-6">
@@ -138,6 +154,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
           <Field label="Plate" value={caseRecord.fields.plate} />
           <Field label="Damage" value={caseRecord.fields.damageType} />
           <Field label="Location" value={caseRecord.fields.locationText} />
+          <Field label="Mobile" value={caseRecord.fields.contactPhone} />
           <Field
             label="Situation"
             value={
@@ -240,33 +257,53 @@ export function CaseDetail({ caseId }: { caseId: string }) {
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
-            disabled={!canAct || busy || !caseRecord.coverage}
+            disabled={!canApprove || busy}
             onClick={() => approve(true)}
             className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[#042f2e]"
+            title={
+              isChangingDecision
+                ? "Dropdown differs from the AI suggestion. Use Override & notify, or set the dropdown back to the AI decision."
+                : undefined
+            }
           >
             Approve suggestion
+            {aiDecision ? ` (${aiDecision.replace("_", " ")})` : ""}
           </button>
-          <select
-            value={overrideDecision}
-            onChange={(e) =>
-              setOverrideDecision(e.target.value as CoverageDecision)
-            }
-            disabled={!canAct}
-            className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm"
-          >
-            <option value="covered">covered</option>
-            <option value="not_covered">not_covered</option>
-            <option value="uncertain">uncertain</option>
-          </select>
+          <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
+            Decision
+            <select
+              value={overrideDecision}
+              onChange={(e) => {
+                decisionTouchedRef.current = true;
+                setOverrideDecision(e.target.value as CoverageDecision);
+              }}
+              disabled={!canAct}
+              className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)]"
+            >
+              <option value="covered">covered</option>
+              <option value="not_covered">not covered</option>
+              <option value="uncertain">uncertain</option>
+            </select>
+          </label>
           <button
             type="button"
-            disabled={!canAct || busy}
+            disabled={!canOverride || busy}
             onClick={() => approve(false)}
             className="rounded-md border border-[var(--border)] px-4 py-2 text-sm"
+            title={
+              !isChangingDecision
+                ? "Change the dropdown away from the AI suggestion to enable override."
+                : undefined
+            }
           >
             Override & notify
           </button>
         </div>
+        <p className="mt-2 text-xs text-[var(--muted)]">
+          {isChangingDecision
+            ? `Dropdown is ${overrideDecision.replace("_", " ")}, which differs from the AI suggestion (${aiDecision?.replace("_", " ")}). Approve is disabled — click Override & notify.`
+            : "Dropdown matches the AI suggestion. Use Approve suggestion, or change the dropdown to override."}
+        </p>
       </Panel>
 
       <Panel title="Audit trail (append-only hash chain)">

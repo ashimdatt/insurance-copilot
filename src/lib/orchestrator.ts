@@ -1,7 +1,12 @@
 import { appendAudit } from "./audit";
-import { findPolicyholderByIdentity, getCase, updateCase } from "./db";
+import { findPolicyholderByIdentity, getCase, getPolicyholder, updateCase } from "./db";
 import { checkCoverage } from "./coverage";
 import { recommendDispatch } from "./garage";
+import {
+  buildIntakeClosingScript,
+  formatPhoneDisplay,
+  formatPhoneForSpeech,
+} from "./phone";
 import { redactTranscript } from "./redact";
 import type { CaseRecord, ExtractedFields } from "./types";
 
@@ -9,7 +14,14 @@ export function verifyIdentity(
   caseId: string,
   name: string,
   dateOfBirth: string,
-): { ok: boolean; case: CaseRecord | null; message: string } {
+): {
+  ok: boolean;
+  case: CaseRecord | null;
+  message: string;
+  notificationPhone?: string;
+  notificationPhoneDisplay?: string;
+  notificationPhoneSpeech?: string;
+} {
   const existing = getCase(caseId);
   if (!existing) {
     return { ok: false, case: null, message: "Case not found" };
@@ -46,6 +58,7 @@ export function verifyIdentity(
       vehicleModel: existing.fields.vehicleModel || match.vehicleModel,
       vehicleYear: existing.fields.vehicleYear || match.vehicleYear,
       plate: existing.fields.plate || match.plate,
+      contactPhone: match.phone,
     },
     identityVerified: true,
     policyholderId: match.id,
@@ -55,8 +68,50 @@ export function verifyIdentity(
     policyholderId: match.id,
     policyId: match.policyId,
     matchedName: match.name,
+    notificationPhone: match.phone,
   });
-  return { ok: true, case: updated, message: `Verified ${match.name}` };
+  return {
+    ok: true,
+    case: updated,
+    message: `Verified ${match.name}. Text updates will go to ${formatPhoneDisplay(match.phone)}.`,
+    notificationPhone: match.phone,
+    notificationPhoneDisplay: formatPhoneDisplay(match.phone),
+    notificationPhoneSpeech: formatPhoneForSpeech(match.phone),
+  };
+}
+
+export function resolveNotificationPhone(
+  caseRecord: CaseRecord,
+): string | null {
+  if (caseRecord.fields.contactPhone) return caseRecord.fields.contactPhone;
+  if (caseRecord.policyholderId) {
+    return getPolicyholder(caseRecord.policyholderId)?.phone ?? null;
+  }
+  return null;
+}
+
+export function getIntakeClosing(caseId: string, escalate = false) {
+  const caseRecord = getCase(caseId);
+  if (!caseRecord) {
+    return {
+      suggestedClosing:
+        "Thanks. I'm disconnecting now. We'll text next steps to the mobile on your policy within one minute.",
+      notificationPhone: null as string | null,
+      notificationPhoneDisplay: "",
+      notificationPhoneSpeech: "the mobile number on your policy",
+    };
+  }
+  const phone = resolveNotificationPhone(caseRecord);
+  return {
+    suggestedClosing: buildIntakeClosingScript({
+      firstName: caseRecord.fields.policyholderName,
+      phone,
+      escalate,
+    }),
+    notificationPhone: phone,
+    notificationPhoneDisplay: formatPhoneDisplay(phone),
+    notificationPhoneSpeech: formatPhoneForSpeech(phone),
+  };
 }
 
 export async function runPostIntakeAnalysis(
@@ -189,22 +244,43 @@ export function mergeFields(
   return updated;
 }
 
+function humanDispatchAction(action: CaseRecord["nba"]): string {
+  switch (action?.action) {
+    case "tow":
+      return "a flatbed tow";
+    case "repair_truck":
+      return "a roadside service truck";
+    default:
+      return "follow-up support";
+  }
+}
+
 export function buildSmsPreview(caseRecord: CaseRecord): string {
   const decision =
     caseRecord.humanDecision ?? caseRecord.coverage?.decision ?? "uncertain";
-  const action = caseRecord.nba?.action ?? "none";
   const garage = caseRecord.nba?.garageName;
   const name = caseRecord.fields.policyholderName ?? "there";
+  const firstName = name.trim().split(/\s+/)[0] || name;
+  const service = humanDispatchAction(caseRecord.nba);
+  const notifyPhone = formatPhoneDisplay(resolveNotificationPhone(caseRecord));
 
   if (decision === "covered") {
-    return `Hi ${name}, your roadside request is approved (${decision}). Next step: ${action}${
-      garage ? ` via ${garage}` : ""
-    }. A dispatcher will follow up shortly.`;
+    const provider = garage ? ` from ${garage}` : "";
+    const phoneLine = notifyPhone
+      ? ` This update is also being sent to ${notifyPhone}.`
+      : "";
+    return `Hi ${firstName}, good news: your roadside assistance request is approved. We're sending ${service}${provider}.${phoneLine} A dispatcher will text or call you shortly with timing and next steps.`;
   }
   if (decision === "not_covered") {
-    return `Hi ${name}, after review we cannot cover this request under your roadside benefit. An agent can explain options if you reply to this message.`;
+    const phoneLine = notifyPhone
+      ? ` We're sending this note to ${notifyPhone}.`
+      : "";
+    return `Hi ${firstName}, after review this request is not covered under your roadside benefit.${phoneLine} An agent can walk you through other options if you reply to this message.`;
   }
-  return `Hi ${name}, we need a bit more review on your roadside request. An agent will contact you shortly with next steps.`;
+  const phoneLine = notifyPhone
+    ? ` We're sending this note to ${notifyPhone}.`
+    : "";
+  return `Hi ${firstName}, thanks for contacting us. We're still reviewing your roadside request and an agent will reach out shortly with next steps.${phoneLine}`;
 }
 
 export function approveCase(
