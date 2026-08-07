@@ -9,6 +9,8 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [notes, setNotes] = useState("");
   const [agentId, setAgentId] = useState("agent-demo-001");
+  const [smsDraft, setSmsDraft] = useState("");
+  const [smsTouched, setSmsTouched] = useState(false);
   const [overrideDecision, setOverrideDecision] =
     useState<CoverageDecision>("uncertain");
   const [busy, setBusy] = useState(false);
@@ -28,6 +30,9 @@ export function CaseDetail({ caseId }: { caseId: string }) {
     }
     setCaseRecord(data.case);
     setAudit(data.audit ?? []);
+    if (data.case?.smsPreview && !smsTouched) {
+      setSmsDraft(data.case.smsPreview);
+    }
     if (
       data.case?.coverage?.decision &&
       !decisionTouchedRef.current &&
@@ -36,7 +41,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
       setOverrideDecision(data.case.coverage.decision);
       decisionSeededRef.current = true;
     }
-  }, [caseId]);
+  }, [caseId, smsTouched]);
 
   const verifyChain = useCallback(async () => {
     const res = await fetch(`/api/cases/${caseId}/audit`);
@@ -56,6 +61,8 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   useEffect(() => {
     decisionTouchedRef.current = false;
     decisionSeededRef.current = false;
+    setSmsTouched(false);
+    setSmsDraft("");
     load();
     verifyChain();
     const id = setInterval(load, 5000);
@@ -79,10 +86,38 @@ export function CaseDetail({ caseId }: { caseId: string }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Approval failed");
       setCaseRecord(data.case);
-      await load();
+      if (data.case?.smsPreview) {
+        setSmsDraft(data.case.smsPreview);
+        setSmsTouched(false);
+      }
       await verifyChain();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Approval failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendSms() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/cases/${caseId}/notify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: smsDraft,
+          agentId: agentId.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send SMS");
+      setCaseRecord(data.case);
+      setSmsTouched(false);
+      if (data.case?.smsPreview) setSmsDraft(data.case.smsPreview);
+      await verifyChain();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send SMS");
     } finally {
       setBusy(false);
     }
@@ -100,6 +135,10 @@ export function CaseDetail({ caseId }: { caseId: string }) {
     caseRecord.status === "pending_review" ||
     caseRecord.status === "intake" ||
     caseRecord.status === "escalated";
+
+  const awaitingSmsSend =
+    caseRecord.status === "approved" || caseRecord.status === "overridden";
+  const smsSent = caseRecord.status === "notified";
 
   const aiDecision = caseRecord.coverage?.decision ?? null;
   const isChangingDecision =
@@ -226,7 +265,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
       </div>
 
       <Panel title="Human approval">
-        {caseRecord.smsPreview && (
+        {smsSent && caseRecord.smsPreview && (
           <div className="mb-4 rounded-md border border-[var(--ok)]/30 bg-[var(--ok)]/10 p-3 text-sm">
             <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ok)]">
               Simulated SMS sent
@@ -239,7 +278,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
           <input
             value={agentId}
             onChange={(e) => setAgentId(e.target.value)}
-            disabled={!canAct}
+            disabled={!canAct && !awaitingSmsSend}
             className="mt-1 w-full rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)] outline-none focus:border-[var(--accent-dim)]"
             placeholder="agent-demo-001"
           />
@@ -262,7 +301,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
             className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[#042f2e]"
             title={
               isChangingDecision
-                ? "Dropdown differs from the AI suggestion. Use Override & notify, or set the dropdown back to the AI decision."
+                ? "Dropdown differs from the AI suggestion. Use Override decision, or set the dropdown back to the AI decision."
                 : undefined
             }
           >
@@ -296,14 +335,50 @@ export function CaseDetail({ caseId }: { caseId: string }) {
                 : undefined
             }
           >
-            Override & notify
+            Override decision
           </button>
         </div>
         <p className="mt-2 text-xs text-[var(--muted)]">
-          {isChangingDecision
-            ? `Dropdown is ${overrideDecision.replace("_", " ")}, which differs from the AI suggestion (${aiDecision?.replace("_", " ")}). Approve is disabled — click Override & notify.`
-            : "Dropdown matches the AI suggestion. Use Approve suggestion, or change the dropdown to override."}
+          {awaitingSmsSend
+            ? "Decision saved. Review the SMS below, edit if needed, then click Send SMS."
+            : isChangingDecision
+              ? `Dropdown is ${overrideDecision.replace("_", " ")}, which differs from the AI suggestion (${aiDecision?.replace("_", " ")}). Approve is disabled — click Override decision.`
+              : "Dropdown matches the AI suggestion. Approve or override first; SMS is confirmed in a second step."}
         </p>
+
+        {(awaitingSmsSend || smsSent) && (
+          <div className="mt-5 rounded-md border border-[var(--border)] bg-[var(--bg)] p-4">
+            <div className="text-sm font-semibold">
+              {smsSent ? "SMS sent (simulated)" : "Confirm SMS before sending"}
+            </div>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              To{" "}
+              {caseRecord.fields.contactPhone ||
+                "policy mobile on file"}
+              {!smsSent && " — edit the message if needed, then send."}
+            </p>
+            <textarea
+              value={smsDraft}
+              onChange={(e) => {
+                setSmsTouched(true);
+                setSmsDraft(e.target.value);
+              }}
+              rows={5}
+              disabled={smsSent || busy}
+              className="mt-3 w-full rounded-md border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2 text-sm text-[var(--text)] outline-none focus:border-[var(--accent-dim)]"
+            />
+            {!smsSent && (
+              <button
+                type="button"
+                disabled={busy || !smsDraft.trim()}
+                onClick={sendSms}
+                className="mt-3 rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[#042f2e]"
+              >
+                Send SMS
+              </button>
+            )}
+          </div>
+        )}
       </Panel>
 
       <Panel title="Audit trail (append-only hash chain)">

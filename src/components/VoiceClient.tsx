@@ -240,15 +240,18 @@ export function VoiceClient() {
         }
 
         if (isMatchedClosingDone || isFallbackClosingDone) {
+          // response.done often arrives before playback finishes; give the closing
+          // sentence time to finish speaking before tearing down WebRTC.
+          const delayMs = 6000;
           hangupAfterResponseRef.current = false;
           hangupResponseIdRef.current = null;
           hangupDoneSkipsRef.current = 0;
-          pushEvent("Agent finished closing — ending call");
+          pushEvent("Closing generated — waiting for speech to finish before ending call");
           if (hangupTimerRef.current) clearTimeout(hangupTimerRef.current);
           hangupTimerRef.current = setTimeout(() => {
             stopVoiceRef.current();
             pushEvent("Call ended automatically");
-          }, 1800);
+          }, delayMs);
         }
       };
 

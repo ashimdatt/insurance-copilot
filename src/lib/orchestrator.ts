@@ -366,15 +366,70 @@ export function approveCase(
     nba,
   });
 
-  const smsPreview = buildSmsPreview(withDecision!);
+  const smsDraft = buildSmsPreview(withDecision!);
+  const drafted = updateCase(caseId, {
+    smsPreview: smsDraft,
+  });
+  appendAudit(
+    caseId,
+    "human_agent",
+    "sms_drafted",
+    {
+      smsDraft,
+      humanDecision,
+      awaitingSendConfirmation: true,
+    },
+    { actorId: agentId },
+  );
+  return drafted!;
+}
+
+export function sendCaseSms(
+  caseId: string,
+  input: {
+    message?: string;
+    agentId?: string;
+  } = {},
+): CaseRecord {
+  const existing = getCase(caseId);
+  if (!existing) throw new Error(`Case ${caseId} not found`);
+  if (
+    existing.status !== "approved" &&
+    existing.status !== "overridden" &&
+    existing.status !== "notified"
+  ) {
+    throw new Error(
+      "Confirm coverage (approve or override) before sending the SMS.",
+    );
+  }
+
+  const agentId =
+    input.agentId?.trim() ||
+    process.env.DEFAULT_AGENT_ID ||
+    "agent-unauthenticated";
+  const smsPreview =
+    input.message?.trim() ||
+    existing.smsPreview ||
+    buildSmsPreview(existing);
+  if (!smsPreview.trim()) {
+    throw new Error("SMS message is empty");
+  }
+
   const notified = updateCase(caseId, {
     status: "notified",
     smsPreview,
   });
-  appendAudit(caseId, "system", "sms_simulated", {
-    smsPreview,
-    humanDecision,
-    approvedBy: agentId,
-  });
+  appendAudit(
+    caseId,
+    "human_agent",
+    "sms_simulated",
+    {
+      smsPreview,
+      humanDecision: existing.humanDecision,
+      edited: Boolean(input.message?.trim()),
+      sentBy: agentId,
+    },
+    { actorId: agentId },
+  );
   return notified!;
 }
