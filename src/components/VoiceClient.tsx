@@ -242,7 +242,7 @@ export function VoiceClient() {
         if (isMatchedClosingDone || isFallbackClosingDone) {
           // response.done often arrives before playback finishes; give the closing
           // sentence time to finish speaking before tearing down WebRTC.
-          const delayMs = 6000;
+          const delayMs = 9000;
           hangupAfterResponseRef.current = false;
           hangupResponseIdRef.current = null;
           hangupDoneSkipsRef.current = 0;
