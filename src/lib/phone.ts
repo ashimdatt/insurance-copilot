@@ -46,10 +46,16 @@ export function buildIntakeClosingScript(input: {
   firstName?: string;
   phone?: string | null;
   escalate?: boolean;
+  identityVerified?: boolean;
 }): string {
   const name = input.firstName?.trim().split(/\s+/)[0] || "there";
   const phoneDisplay = formatPhoneDisplay(input.phone);
   const phoneSpeech = formatPhoneForSpeech(input.phone);
+
+  if (input.escalate && !input.identityVerified) {
+    return `Thanks ${name}. I wasn't able to match your details to a policy on this call, so I'm connecting you with a human agent and ending this automated call now. They'll help verify your account and discuss next steps shortly. Please keep your phone nearby. Goodbye.`;
+  }
+
   const phoneClause = phoneDisplay
     ? `We'll text an update with next steps to ${phoneSpeech} (that's ${phoneDisplay}) within one minute.`
     : `We'll text an update with next steps to the mobile number on your policy within one minute.`;

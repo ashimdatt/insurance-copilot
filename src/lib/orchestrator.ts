@@ -1,4 +1,4 @@
-import { appendAudit } from "./audit";
+import { appendAudit, listAudit } from "./audit";
 import { findPolicyholderByIdentity, getCase, getPolicyholder, updateCase } from "./db";
 import { checkCoverage } from "./coverage";
 import { recommendDispatch } from "./garage";
@@ -10,6 +10,12 @@ import {
 import { redactTranscript } from "./redact";
 import type { CaseRecord, ExtractedFields } from "./types";
 
+const MAX_IDENTITY_ATTEMPTS = 2;
+
+function countIdentityFailures(caseId: string): number {
+  return listAudit(caseId).filter((e) => e.action === "identity_failed").length;
+}
+
 export function verifyIdentity(
   caseId: string,
   name: string,
@@ -18,13 +24,25 @@ export function verifyIdentity(
   ok: boolean;
   case: CaseRecord | null;
   message: string;
+  attempts: number;
+  maxAttempts: number;
+  shouldEscalate: boolean;
+  suggestedSpeak: string;
   notificationPhone?: string;
   notificationPhoneDisplay?: string;
   notificationPhoneSpeech?: string;
 } {
   const existing = getCase(caseId);
   if (!existing) {
-    return { ok: false, case: null, message: "Case not found" };
+    return {
+      ok: false,
+      case: null,
+      message: "Case not found",
+      attempts: 0,
+      maxAttempts: MAX_IDENTITY_ATTEMPTS,
+      shouldEscalate: false,
+      suggestedSpeak: "I'm sorry, something went wrong looking up your policy. Please try again in a moment.",
+    };
   }
 
   const match = findPolicyholderByIdentity(name, dateOfBirth);
@@ -33,6 +51,8 @@ export function verifyIdentity(
       attemptedName: name,
       attemptedDob: dateOfBirth,
     });
+    const attempts = countIdentityFailures(caseId);
+    const shouldEscalate = attempts >= MAX_IDENTITY_ATTEMPTS;
     const updated = updateCase(caseId, {
       fields: { ...existing.fields, policyholderName: name, dateOfBirth },
       identityVerified: false,
@@ -40,12 +60,24 @@ export function verifyIdentity(
     });
     appendAudit(caseId, "system", "case_flagged", {
       reason: "identity_mismatch",
+      attempts,
+      shouldEscalate,
     });
+
+    const suggestedSpeak = shouldEscalate
+      ? "I'm sorry, I still can't find a matching policy with that name and date of birth. I'm going to connect you with a human agent who can help verify your account. Before I disconnect, is there anything urgent about your location or safety I should note?"
+      : "I couldn't find a matching policy with that name and date of birth. Could you please say your full legal name and date of birth one more time?";
+
     return {
       ok: false,
       case: updated,
-      message:
-        "No policyholder matched name + DOB. Case flagged for human review.",
+      message: shouldEscalate
+        ? `Identity not verified after ${attempts} attempts. Escalate to human.`
+        : `No policyholder matched (attempt ${attempts}/${MAX_IDENTITY_ATTEMPTS}). Ask caller to restate name and DOB.`,
+      attempts,
+      maxAttempts: MAX_IDENTITY_ATTEMPTS,
+      shouldEscalate,
+      suggestedSpeak,
     };
   }
 
@@ -74,6 +106,10 @@ export function verifyIdentity(
     ok: true,
     case: updated,
     message: `Verified ${match.name}. Text updates will go to ${formatPhoneDisplay(match.phone)}.`,
+    attempts: countIdentityFailures(caseId),
+    maxAttempts: MAX_IDENTITY_ATTEMPTS,
+    shouldEscalate: false,
+    suggestedSpeak: `Thanks, I found your policy. Next, where are you right now, or can you tap Share GPS on the screen?`,
     notificationPhone: match.phone,
     notificationPhoneDisplay: formatPhoneDisplay(match.phone),
     notificationPhoneSpeech: formatPhoneForSpeech(match.phone),
@@ -107,6 +143,7 @@ export function getIntakeClosing(caseId: string, escalate = false) {
       firstName: caseRecord.fields.policyholderName,
       phone,
       escalate,
+      identityVerified: caseRecord.identityVerified,
     }),
     notificationPhone: phone,
     notificationPhoneDisplay: formatPhoneDisplay(phone),
@@ -140,8 +177,10 @@ export async function runPostIntakeAnalysis(
 
   if (!existing.identityVerified || !policyId) {
     const nba = recommendDispatch(existing.fields);
+    const status =
+      existing.status === "escalated" ? "escalated" : "pending_review";
     const flagged = updateCase(caseId, {
-      status: "pending_review",
+      status,
       redactedTranscript: redacted,
       flagged: true,
       coverage: {
@@ -155,6 +194,7 @@ export async function runPostIntakeAnalysis(
     });
     appendAudit(caseId, "system", "analysis_blocked_unverified", {
       nba,
+      status,
     });
     appendAudit(caseId, "system", "nba_recommendation", { nba });
     return flagged!;

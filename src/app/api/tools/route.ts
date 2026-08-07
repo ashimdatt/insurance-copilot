@@ -49,6 +49,36 @@ export async function POST(request: Request) {
       const name = String(args.name ?? "");
       const dateOfBirth = String(args.dateOfBirth ?? "");
       const result = verifyIdentity(body.caseId, name, dateOfBirth);
+
+      // After two failed matches, finish intake as escalated so the case
+      // lands in the human queue instead of continuing a normal AI flow.
+      if (!result.ok && result.shouldEscalate) {
+        const { updateCase } = await import("@/lib/db");
+        const { appendAudit } = await import("@/lib/audit");
+        const { getIntakeClosing, runPostIntakeAnalysis } = await import(
+          "@/lib/orchestrator"
+        );
+        updateCase(body.caseId, { flagged: true, status: "escalated" });
+        appendAudit(body.caseId, "voice_agent", "escalated", {
+          reason: "identity_verification_failed",
+          attempts: result.attempts,
+        });
+        const closing = getIntakeClosing(body.caseId, true);
+        const analyzed = await runPostIntakeAnalysis(body.caseId);
+        appendAudit(body.caseId, "voice_agent", "intake_closing_spoken", {
+          suggestedClosing: closing.suggestedClosing,
+          reason: "identity_failed",
+        });
+        return NextResponse.json({
+          ...result,
+          autoEscalated: true,
+          suggestedClosing: closing.suggestedClosing,
+          message:
+            "Identity could not be verified. Speak suggestedSpeak then suggestedClosing, and end the call.",
+          case: analyzed,
+        });
+      }
+
       return NextResponse.json(result);
     }
     case "complete_intake": {

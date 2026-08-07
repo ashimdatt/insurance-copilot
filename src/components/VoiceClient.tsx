@@ -18,6 +18,11 @@ export function VoiceClient() {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const hangupAfterResponseRef = useRef(false);
+  const hangupResponseIdRef = useRef<string | null>(null);
+  const hangupDoneSkipsRef = useRef(0);
+  const hangupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopVoiceRef = useRef<() => void>(() => {});
 
   const pushEvent = useCallback((line: string) => {
     setEvents((prev) => [`${new Date().toLocaleTimeString()}  ${line}`, ...prev].slice(0, 40));
@@ -38,6 +43,35 @@ export function VoiceClient() {
     return data.case as CaseRecord;
   }, [caseRecord, pushEvent]);
 
+  const stopVoice = useCallback(() => {
+    if (hangupTimerRef.current) {
+      clearTimeout(hangupTimerRef.current);
+      hangupTimerRef.current = null;
+    }
+    hangupAfterResponseRef.current = false;
+    hangupResponseIdRef.current = null;
+    hangupDoneSkipsRef.current = 0;
+    dcRef.current?.close();
+    pcRef.current?.getSenders().forEach((s) => s.track?.stop());
+    pcRef.current?.close();
+    dcRef.current = null;
+    pcRef.current = null;
+    setConnState((s) => (s === "live" || s === "connecting" ? "ended" : s));
+  }, []);
+
+  useEffect(() => {
+    stopVoiceRef.current = stopVoice;
+  }, [stopVoice]);
+
+  const scheduleHangupAfterClosing = useCallback(() => {
+    // Arm hangup for the *next* response.created (the closing speech),
+    // not the prior response that issued the tool call.
+    hangupAfterResponseRef.current = true;
+    hangupResponseIdRef.current = null;
+    hangupDoneSkipsRef.current = 0;
+    pushEvent("Will end call after the agent finishes speaking");
+  }, [pushEvent]);
+
   const handleToolCall = useCallback(
     async (caseId: string, callId: string, name: string, argsJson: string) => {
       let args: Record<string, unknown> = {};
@@ -56,6 +90,9 @@ export function VoiceClient() {
       if (result.case) setCaseRecord(result.case);
       const output = JSON.stringify(result);
 
+      const endCallAfterThis =
+        name === "complete_intake" || Boolean(result.autoEscalated);
+
       dcRef.current?.send(
         JSON.stringify({
           type: "conversation.item.create",
@@ -66,21 +103,32 @@ export function VoiceClient() {
           },
         }),
       );
-      dcRef.current?.send(JSON.stringify({ type: "response.create" }));
+
+      if (endCallAfterThis) {
+        scheduleHangupAfterClosing();
+        dcRef.current?.send(
+          JSON.stringify({
+            type: "response.create",
+            response: {
+              instructions: result.suggestedClosing
+                ? `Speak this closing to the caller now, then stop. Do not ask another question: ${result.suggestedClosing}`
+                : result.suggestedSpeak
+                  ? `Speak this to the caller now, then the closing if provided, then stop. Do not ask another question: ${result.suggestedSpeak}${
+                      result.suggestedClosing
+                        ? ` ${result.suggestedClosing}`
+                        : ""
+                    }`
+                  : "Thank the caller briefly, say you are ending the call now, and stop. Do not ask another question.",
+            },
+          }),
+        );
+      } else {
+        dcRef.current?.send(JSON.stringify({ type: "response.create" }));
+      }
       pushEvent(`Tool ← ${name} ok`);
     },
-    [pushEvent],
+    [pushEvent, scheduleHangupAfterClosing],
   );
-
-  const stopVoice = useCallback(() => {
-    dcRef.current?.close();
-    pcRef.current?.getSenders().forEach((s) => s.track?.stop());
-    pcRef.current?.close();
-    dcRef.current = null;
-    pcRef.current = null;
-    setConnState((s) => (s === "live" || s === "connecting" ? "ended" : s));
-  }, []);
-
   const startVoice = useCallback(async () => {
     setError(null);
     setConnState("connecting");
@@ -129,7 +177,11 @@ export function VoiceClient() {
           call_id?: string;
           name?: string;
           arguments?: string;
+          response?: { id?: string };
+          response_id?: string;
         };
+        const responseId = msg.response?.id || msg.response_id || null;
+
         if (msg.type === "response.audio_transcript.done" && msg.transcript) {
           pushEvent(`Agent: ${msg.transcript}`);
         }
@@ -155,6 +207,48 @@ export function VoiceClient() {
             msg.arguments || "{}",
           );
           await refreshCase(current.id);
+        }
+
+        // Capture the closing response id so we don't hang up on the
+        // earlier tool-call response.done.
+        if (
+          msg.type === "response.created" &&
+          hangupAfterResponseRef.current &&
+          !hangupResponseIdRef.current &&
+          responseId
+        ) {
+          hangupResponseIdRef.current = responseId;
+        }
+
+        const isMatchedClosingDone =
+          hangupAfterResponseRef.current &&
+          hangupResponseIdRef.current &&
+          responseId === hangupResponseIdRef.current &&
+          (msg.type === "response.done" ||
+            msg.type === "output_audio_buffer.stopped");
+
+        // Fallback if response ids are missing: skip the tool-call response.done,
+        // hang up on the following closing response.done.
+        let isFallbackClosingDone = false;
+        if (
+          hangupAfterResponseRef.current &&
+          !hangupResponseIdRef.current &&
+          msg.type === "response.done"
+        ) {
+          hangupDoneSkipsRef.current += 1;
+          isFallbackClosingDone = hangupDoneSkipsRef.current >= 2;
+        }
+
+        if (isMatchedClosingDone || isFallbackClosingDone) {
+          hangupAfterResponseRef.current = false;
+          hangupResponseIdRef.current = null;
+          hangupDoneSkipsRef.current = 0;
+          pushEvent("Agent finished closing — ending call");
+          if (hangupTimerRef.current) clearTimeout(hangupTimerRef.current);
+          hangupTimerRef.current = setTimeout(() => {
+            stopVoiceRef.current();
+            pushEvent("Call ended automatically");
+          }, 1800);
         }
       };
 
